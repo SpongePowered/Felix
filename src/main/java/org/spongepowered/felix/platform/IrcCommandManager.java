@@ -71,6 +71,10 @@ public final class IrcCommandManager {
       return;
     }
 
+    if(message.charAt(0) != this.cc.prefix) {
+      return;
+    }
+
     final Channel channel = event.getChannel();
     final User user = event.getActor();
 
