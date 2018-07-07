@@ -25,6 +25,8 @@
 package org.spongepowered.felix.platform;
 
 import com.sk89q.intake.context.CommandContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.felix.command.CommandConfiguration;
 import org.spongepowered.felix.command.CommandUtil;
 import org.spongepowered.felix.command.PhysicalCommand;
@@ -41,10 +43,15 @@ import java.util.Iterator;
 import javax.annotation.Nullable;
 
 public final class DiscordPlatform {
-  private final IDiscordClient client;
-  private final CommandConfiguration cc;
+  private static final Logger LOGGER = LogManager.getLogger();
+  private IDiscordClient client;
+  private CommandConfiguration cc;
 
   public DiscordPlatform(final ConfigurationNode config, final CommandConfiguration cc) {
+    if (!config.getNode("enabled").getBoolean(true)) {
+      LOGGER.error("Discord client is disabled via config");
+      return;
+    }
     this.cc = cc;
     this.client = new ClientBuilder()
       .withToken(config.getNode("token").getString())
