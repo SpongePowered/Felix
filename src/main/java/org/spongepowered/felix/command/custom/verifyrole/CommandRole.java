@@ -10,6 +10,7 @@ import com.google.common.base.Joiner;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import ninja.leaping.configurate.ConfigurationNode;
 import org.spongepowered.felix.command.custom.CustomCommand;
 import org.spongepowered.felix.platform.DiscordPlatform;
 import sx.blah.discord.api.IDiscordClient;
@@ -27,25 +28,41 @@ import java.util.Map;
 
 public class CommandRole implements CustomCommand {
 
-    private String baseDiscordURL;
-    private String baseOreURL = "https://ore.spongepowered.org";
+    private ConfigurationNode config;
 
-    private String pluginDeveloperRole = "Plugin Developer";
+    private String discordGuild;
+
+    private String baseDiscourseURL;
+    private String baseOreURL;
+
+    private String pluginDeveloperRole;
+
+    private String discourseAPIKey;
+    private String discourseAPIUsername;
+
+    private int tokenLength;
 
     private static final String VERIFY_ROLE = "verify";
     private static final String TOKEN = "forum-token";
     private static final String[] SUBCOMMANDS = {VERIFY_ROLE, TOKEN};
-    private int token_length = 20;
 
-    private String discordGuild = "Aaron1011 testing";
 
     private String tokenCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     private Map<String, TokenData> discordUsernameToToken = new HashMap<>();
-    private String discourse_api_key;
-    private String discourse_api_username;
 
     private HttpRequestFactory requestFactory = new NetHttpTransport().createRequestFactory();
+
+    public CommandRole(ConfigurationNode config) {
+        this.config = config;
+        this.baseDiscourseURL = config.getNode("base-discourse-url").getString();
+        this.baseOreURL = config.getNode("base-ore-url").getString();
+        this.pluginDeveloperRole = config.getNode("plugin-developer-role").getString();
+        this.discourseAPIKey = config.getNode("discourse-api-key").getString();
+        this.discourseAPIUsername = config.getNode("discourse-api-username").getString();
+        this.tokenLength = config.getNode("token-length").getInt();
+        this.discordGuild = config.getNode("discord-guilld").getString();
+    }
 
     @Override
     public void process(String[] args, MessageReceivedEvent event) {
@@ -100,7 +117,7 @@ public class CommandRole implements CustomCommand {
         messageRequest.addProperty("archetype", "private_message");
 
         try {
-            String url = baseDiscordURL + "/posts.json?" + String.format("api_key=%s&api_username=%s", this.discourse_api_key, this.discourse_api_username);
+            String url = baseDiscourseURL + "/posts.json?" + String.format("api_key=%s&api_username=%s", this.discourseAPIKey, this.discourseAPIUsername);
             HttpRequest request = this.requestFactory.buildPostRequest(new GenericUrl(url), new ByteArrayContent("multipart/form-data", messageRequest.toString().getBytes("UTF-8"))).setThrowExceptionOnExecuteError(false);
             HttpResponse response = request.execute();
 
@@ -124,7 +141,7 @@ public class CommandRole implements CustomCommand {
         SecureRandom random = new SecureRandom();
         StringBuilder token = new StringBuilder();
         int tokenCharactersLen = this.tokenCharacters.length();
-        for (int i = 0; i < token_length; i++) {
+        for (int i = 0; i < tokenLength; i++) {
             token.append(this.tokenCharacters.charAt(random.nextInt(tokenCharactersLen)));
         }
         return token.toString();

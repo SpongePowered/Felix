@@ -1,6 +1,6 @@
 {
   "irc": {
-    "enabled": false,
+    "enabled": true,
     "nick": "Felix",
     "host": "IRC_HOST_HERE",
     "port": 6667,
@@ -16,5 +16,17 @@
   "command": {
     "prefix": "!f",
     "ignore": []
+  },
+  "role-verification": {
+    "base-discourse-url": "https://forums.spongepowered.org",
+    "base-ore-url": "https://ore.spongepowered.org",
+
+    "plugin-developer-role": "Plugin Developer",
+    "discord-guild": "Aaron1011 testing",
+
+    "discourse-api-key": "DISCOURSE_API_KEY_HERE",
+    "discourse-api-username": "DISCOURSE_API_USERNAME_HERE",
+
+    "token-length": 20
   }
 }
