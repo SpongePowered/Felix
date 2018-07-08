@@ -103,15 +103,11 @@ public class CommandRole implements CustomCommand {
 
         this.storeToken(event, new TokenData(token, forumUsername));
 
-        if (true) {
-            return;
-        }
-
         JsonObject messageRequest = new JsonObject();
 
         messageRequest.addProperty("title", "Role verification token");
         messageRequest.addProperty("topic_id", 0);
-        messageRequest.addProperty("raw", String.format("Send the following private message to the bot: role verify %s", token));
+        messageRequest.addProperty("raw", String.format("Send the following private message to the bot: !role forum-token %s", token));
         messageRequest.addProperty("category", 0);
         messageRequest.addProperty("target_usernames", forumUsername);
         messageRequest.addProperty("archetype", "private_message");
@@ -130,7 +126,6 @@ public class CommandRole implements CustomCommand {
             }
 
             RequestBuffer.request(() -> event.getChannel().sendMessage("Check your sponge forums account for a new private message!"));
-            return;
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -194,7 +189,6 @@ public class CommandRole implements CustomCommand {
                 this.grantPluginDeveloperRole(event);
             } else {
                 RequestBuffer.request(() -> event.getChannel().sendMessage("You have no Ore projects - not granting role!"));
-                return;
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -223,12 +217,11 @@ public class CommandRole implements CustomCommand {
 
     static class TokenData {
         String token;
+        String forumUsername;
 
-        public TokenData(String token, String forumUsername) {
+        TokenData(String token, String forumUsername) {
             this.token = token;
             this.forumUsername = forumUsername;
         }
-
-        String forumUsername;
     }
 }
