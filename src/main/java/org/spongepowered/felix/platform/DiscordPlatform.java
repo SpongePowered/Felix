@@ -53,13 +53,13 @@ public final class DiscordPlatform {
     return this.client;
   }
 
-  public DiscordPlatform(final ConfigurationNode config, final CommandConfiguration cc) {
+  public DiscordPlatform(final ConfigurationNode config, final ConfigurationNode rootConfig, final CommandConfiguration cc) {
     if (!config.getNode("enabled").getBoolean(true)) {
       LOGGER.error("Discord client is disabled via config");
       return;
     }
     this.cc = cc;
-    this.cc.addCustomCommand("role", new CommandRole(config.getNode("role-verification")));
+    this.cc.addCustomCommand("role", new CommandRole(rootConfig.getNode("role-verification")));
     this.client = new ClientBuilder()
       .withToken(config.getNode("token").getString())
       .build();

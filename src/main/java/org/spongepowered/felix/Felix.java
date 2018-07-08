@@ -48,7 +48,7 @@ final class Felix {
       .load();
     final CommandConfiguration dcm = new CommandConfiguration(config);
     this.irc = new IrcPlatform(config.getNode("irc"), dcm);
-    this.discord = new DiscordPlatform(config.getNode("discord"), dcm);
+    this.discord = new DiscordPlatform(config.getNode("discord"), config, dcm);
     LOGGER.info("We're ready to go.");
   }
 }

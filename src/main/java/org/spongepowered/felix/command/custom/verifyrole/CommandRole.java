@@ -61,7 +61,7 @@ public class CommandRole implements CustomCommand {
         this.discourseAPIKey = config.getNode("discourse-api-key").getString();
         this.discourseAPIUsername = config.getNode("discourse-api-username").getString();
         this.tokenLength = config.getNode("token-length").getInt();
-        this.discordGuild = config.getNode("discord-guilld").getString();
+        this.discordGuild = config.getNode("discord-guild").getString();
     }
 
     @Override
@@ -102,6 +102,10 @@ public class CommandRole implements CustomCommand {
         System.err.println("Token: " + token);
 
         this.storeToken(event, new TokenData(token, forumUsername));
+
+        if (true) {
+            return;
+        }
 
         JsonObject messageRequest = new JsonObject();
 
