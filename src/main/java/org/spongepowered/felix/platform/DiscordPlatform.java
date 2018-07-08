@@ -49,6 +49,10 @@ public final class DiscordPlatform {
   private IDiscordClient client;
   private CommandConfiguration cc;
 
+  public IDiscordClient getClient() {
+    return this.client;
+  }
+
   public DiscordPlatform(final ConfigurationNode config, final CommandConfiguration cc) {
     if (!config.getNode("enabled").getBoolean(true)) {
       LOGGER.error("Discord client is disabled via config");

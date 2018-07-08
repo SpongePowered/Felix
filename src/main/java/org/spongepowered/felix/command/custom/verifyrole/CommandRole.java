@@ -8,12 +8,16 @@ import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.common.base.Joiner;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sk89q.intake.Command;
 import org.json.JSONObject;
 import org.spongepowered.felix.command.custom.CustomCommand;
 import org.spongepowered.felix.platform.DiscordPlatform;
+import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.handle.impl.events.guild.channel.message.MessageReceivedEvent;
+import sx.blah.discord.handle.obj.IGuild;
 import sx.blah.discord.handle.obj.IPrivateChannel;
 import sx.blah.discord.handle.obj.IRole;
 import sx.blah.discord.util.RequestBuffer;
@@ -27,14 +31,16 @@ import java.util.Map;
 public class CommandRole implements CustomCommand {
 
     private String baseDiscordURL;
-    private String baseOreURL;
+    private String baseOreURL = "https://ore.spongepowered.org";
 
-    private String pluginDeveloperRole;
+    private String pluginDeveloperRole = "Plugin Developer";
 
     private static final String VERIFY_ROLE = "verify";
     private static final String TOKEN = "forum-token";
     private static final String[] SUBCOMMANDS = {VERIFY_ROLE, TOKEN};
     private int token_length = 20;
+
+    private String discordGuild = "Aaron1011 testing";
 
     private String tokenCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -50,12 +56,8 @@ public class CommandRole implements CustomCommand {
         if (!(event.getChannel() instanceof IPrivateChannel)) {
             return;
         }
-        if (args.length == 0) {
-            RequestBuffer.request(() -> event.getChannel().sendMessage("Missing argument!"));
-            return;
-        }
 
-        String subCommand = args[1];
+        String subCommand = args.length < 2 ? "" : args[1];
         if (subCommand.equals(VERIFY_ROLE)) {
             if (args.length < 3) {
                 RequestBuffer.request(() -> event.getChannel().sendMessage("Provide your Sponge forums username!"));
@@ -83,19 +85,26 @@ public class CommandRole implements CustomCommand {
 
     private void sendForumMessage(MessageReceivedEvent event, String forumUsername) {
         String token = this.getRandomToken();
+        System.err.println("Token: " + token);
 
         this.storeToken(event, new TokenData(token, forumUsername));
+
+        if (true) {
+            return;
+        }
+
         JsonObject messageRequest = new JsonObject();
+
         messageRequest.addProperty("title", "Role verification token");
         messageRequest.addProperty("topic_id", 0);
-        messageRequest.addProperty("raw", String.format("Send the following private message to the bot: role verify %e", token));
+        messageRequest.addProperty("raw", String.format("Send the following private message to the bot: role verify %s", token));
         messageRequest.addProperty("category", 0);
         messageRequest.addProperty("target_usernames", forumUsername);
         messageRequest.addProperty("archetype", "private_message");
 
         try {
-            String url = baseDiscordURL + "/posts.josn? " + String.format("api_key=%s&api_username=%s", this.discourse_api_key, this.discourse_api_username);
-            HttpRequest request = this.requestFactory.buildPostRequest(new GenericUrl(url), new ByteArrayContent("multipart/form-data", messageRequest.toString().getBytes("UTF-8")));
+            String url = baseDiscordURL + "/posts.json?" + String.format("api_key=%s&api_username=%s", this.discourse_api_key, this.discourse_api_username);
+            HttpRequest request = this.requestFactory.buildPostRequest(new GenericUrl(url), new ByteArrayContent("multipart/form-data", messageRequest.toString().getBytes("UTF-8"))).setThrowExceptionOnExecuteError(false);
             HttpResponse response = request.execute();
 
 
@@ -138,10 +147,13 @@ public class CommandRole implements CustomCommand {
 
     private void onForumToken(MessageReceivedEvent event, String forumToken) {
         TokenData tokenData = this.getToken(event);
+        if (tokenData == null) {
+            RequestBuffer.request(() -> event.getChannel().sendMessage(String.format("No saved token - run %s to generate one!", VERIFY_ROLE)));
+            return;
+        }
         if (forumToken.equals(tokenData.token)) {
             RequestBuffer.request(() -> event.getChannel().sendMessage("Granting roles!"));
-            this.onForumVerify(event, forumToken);
-            this.clearToken(event);
+            this.onForumVerify(event, tokenData.forumUsername);
         } else {
             RequestBuffer.request(() -> event.getChannel().sendMessage("Invalid token!"));
         }
@@ -149,12 +161,13 @@ public class CommandRole implements CustomCommand {
 
     private void onForumVerify(MessageReceivedEvent event, String forumUsername) {
         this.validatePluginDeveloperRole(event, forumUsername);
+        this.clearToken(event);
     }
 
     private void validatePluginDeveloperRole(MessageReceivedEvent event, String forumUsername) {
         String url = this.baseOreURL + "/api/v1/users/" + forumUsername;
         try {
-            HttpResponse resp = this.requestFactory.buildGetRequest(new GenericUrl(url)).execute();
+            HttpResponse resp = this.requestFactory.buildGetRequest(new GenericUrl(url)).setThrowExceptionOnExecuteError(false).execute();
             if (!resp.isSuccessStatusCode()) {
                 DiscordPlatform.LOGGER.error(String.format("Failed to get Ore projects for %s: %s", forumUsername, resp.parseAsString()));
                 RequestBuffer.request(() -> event.getChannel().sendMessage("Failed to get Ore projects for " + forumUsername));
@@ -162,11 +175,11 @@ public class CommandRole implements CustomCommand {
             }
 
             JsonObject user = new JsonParser().parse(resp.parseAsString()).getAsJsonObject();
-            JsonArray projects = user.getAsJsonArray("projects");
-            if (projects.size() > 0) {
+            JsonElement projects = user.get("projects");
+            if (!projects.isJsonNull() && projects.getAsJsonArray().size() > 0) {
                 this.grantPluginDeveloperRole(event);
             } else {
-                RequestBuffer.request(() -> event.getChannel().sendMessage("You have no Ore projects!"));
+                RequestBuffer.request(() -> event.getChannel().sendMessage("You have no Ore projects - not granting role!"));
                 return;
             }
         } catch (IOException e) {
@@ -175,16 +188,23 @@ public class CommandRole implements CustomCommand {
     }
 
     private void grantPluginDeveloperRole(MessageReceivedEvent event) {
-        event.getClient().getOurUser().addRole(this.getPluginDeveloperRole(event));
+        event.getAuthor().addRole(this.getPluginDeveloperRole(event));
         RequestBuffer.request(() -> event.getChannel().sendMessage("Successfully granted plugin developer role!"));
     }
 
     private IRole getPluginDeveloperRole(MessageReceivedEvent event) {
-        List<IRole> roles = event.getGuild().getRolesByName(this.pluginDeveloperRole);
+        List<IRole> roles = this.getGuild(event.getClient()).getRolesByName(this.pluginDeveloperRole);
         if (roles.size() != 1) {
             throw new IllegalStateException(String.format("Expected one role with the name %s, but found %s", this.pluginDeveloperRole, roles));
         }
         return roles.get(0);
+    }
+
+    private IGuild getGuild(IDiscordClient client) {
+        return client.getGuilds()
+                .stream().filter(g -> g.getName().equals(this.discordGuild))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(String.format("Not connected to guild %s", this.discordGuild)));
     }
 
     static class TokenData {
