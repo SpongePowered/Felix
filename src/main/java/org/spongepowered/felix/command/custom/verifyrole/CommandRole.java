@@ -7,6 +7,7 @@ import com.google.api.client.http.HttpRequestFactory;
 import com.google.api.client.http.HttpResponse;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -35,7 +36,7 @@ public class CommandRole implements CustomCommand {
     private String baseDiscourseURL;
     private String baseOreURL;
 
-    private String pluginDeveloperRole;
+    private long pluginDeveloperRole;
 
     private String discourseAPIKey;
     private String discourseAPIUsername;
@@ -55,13 +56,13 @@ public class CommandRole implements CustomCommand {
 
     public CommandRole(ConfigurationNode config) {
         this.config = config;
-        this.baseDiscourseURL = config.getNode("base-discourse-url").getString();
-        this.baseOreURL = config.getNode("base-ore-url").getString();
-        this.pluginDeveloperRole = config.getNode("plugin-developer-role").getString();
-        this.discourseAPIKey = config.getNode("discourse-api-key").getString();
-        this.discourseAPIUsername = config.getNode("discourse-api-username").getString();
-        this.tokenLength = config.getNode("token-length").getInt();
-        this.discordGuild = config.getNode("discord-guild").getString();
+        this.baseDiscourseURL = config.getNode("discourse", "base-url").getString();
+        this.baseOreURL = config.getNode("ore", "base-url").getString();
+        this.pluginDeveloperRole = config.getNode("discord", "plugin-developer-role").getLong();
+        this.discourseAPIKey = config.getNode("discourse", "api", "key").getString();
+        this.discourseAPIUsername = config.getNode("discourse", "api", "username").getString();
+        this.tokenLength = config.getNode("discourse", "verification-token-length").getInt(20);
+        this.discordGuild = config.getNode("discord", "guild").getString();
     }
 
     @Override
@@ -205,11 +206,7 @@ public class CommandRole implements CustomCommand {
     }
 
     private IRole getPluginDeveloperRole(MessageReceivedEvent event) {
-        List<IRole> roles = this.getGuild(event.getClient()).getRolesByName(this.pluginDeveloperRole);
-        if (roles.size() != 1) {
-            throw new IllegalStateException(String.format("Expected one role with the name %s, but found %s", this.pluginDeveloperRole, roles));
-        }
-        return roles.get(0);
+        return Preconditions.checkNotNull(this.getGuild(event.getClient()).getRoleByID(this.pluginDeveloperRole), "Failed to get plugin developer role with snowflake %s", this.pluginDeveloperRole);
     }
 
     private IGuild getGuild(IDiscordClient client) {

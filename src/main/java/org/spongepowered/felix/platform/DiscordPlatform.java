@@ -59,7 +59,7 @@ public final class DiscordPlatform {
       return;
     }
     this.cc = cc;
-    this.cc.addCustomCommand("role", new CommandRole(rootConfig.getNode("role-verification")));
+    this.cc.addCustomCommand("role", new CommandRole(rootConfig));
     this.client = new ClientBuilder()
       .withToken(config.getNode("token").getString())
       .build();
