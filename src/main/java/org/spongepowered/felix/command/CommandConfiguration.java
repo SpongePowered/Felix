@@ -29,6 +29,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.Types;
+import org.spongepowered.felix.command.custom.CustomCommand;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -47,6 +48,7 @@ public final class CommandConfiguration {
   public static final Set<String> RESERVED_COMMAND_NAMES = Sets.newHashSet("addalias", "addcmd", "cmdinfo", "delcmd", "setcmd", "unsetcmd");
   public static final int MAX_TARGETS = 3;
   public final Map<String, PhysicalCommand> commands = new HashMap<>();
+  public final Map<String, CustomCommand> customCommands = new HashMap<>();
   public final char prefix;
   private final Set<String> ignore;
 
@@ -55,6 +57,11 @@ public final class CommandConfiguration {
     this.ignore = new HashSet<>(config.getNode("command", "ignore").getList(Types::asString));
 
     this.read();
+  }
+
+  public void addCustomCommand(final String alias, final CustomCommand customCommand) {
+    this.customCommands.put(alias, customCommand);
+    RESERVED_COMMAND_NAMES.add(alias);
   }
 
   public PhysicalCommand get(final String alias) {

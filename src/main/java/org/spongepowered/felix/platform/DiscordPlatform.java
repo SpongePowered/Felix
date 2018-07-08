@@ -32,6 +32,8 @@ import org.spongepowered.felix.command.CommandUtil;
 import org.spongepowered.felix.command.PhysicalCommand;
 import org.spongepowered.felix.command.Target;
 import ninja.leaping.configurate.ConfigurationNode;
+import org.spongepowered.felix.command.custom.CustomCommand;
+import org.spongepowered.felix.command.custom.verifyrole.CommandRole;
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.events.EventSubscriber;
@@ -43,7 +45,7 @@ import java.util.Iterator;
 import javax.annotation.Nullable;
 
 public final class DiscordPlatform {
-  private static final Logger LOGGER = LogManager.getLogger();
+  public static final Logger LOGGER = LogManager.getLogger();
   private IDiscordClient client;
   private CommandConfiguration cc;
 
@@ -53,6 +55,7 @@ public final class DiscordPlatform {
       return;
     }
     this.cc = cc;
+    this.cc.addCustomCommand("role", new CommandRole());
     this.client = new ClientBuilder()
       .withToken(config.getNode("token").getString())
       .build();
@@ -83,9 +86,24 @@ public final class DiscordPlatform {
 
     // Let's get physical.
     @Nullable final PhysicalCommand command = this.cc.commands.get(name);
-    if(command == null) {
+    if(command != null) {
+      this.processPhysicalCommand(event, name, command);
       return;
     }
+
+    @Nullable final CustomCommand customCommand = this.cc.customCommands.get(name);
+    if (customCommand != null) {
+      try {
+        customCommand.process(split, event);
+      } catch (Exception e) {
+        DiscordPlatform.LOGGER.error(String.format("Exception occcured while processing command '%s'", message), e);
+        RequestBuffer.request(() -> event.getChannel().sendMessage("Exception occured while processing your request"));
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  private void processPhysicalCommand(MessageReceivedEvent event, String name, PhysicalCommand command) {
 
     final StringBuilder sb = new StringBuilder();
     for(final Iterator<String> iterator = command.responses.iterator(); iterator.hasNext(); ) {
