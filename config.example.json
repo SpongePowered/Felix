@@ -1,0 +1,34 @@
+{
+  "irc": {
+    "enabled": true,
+    "nick": "Felix",
+    "host": "IRC_HOST_HERE",
+    "port": 6667,
+    "ssl": true,
+    "password": "",
+    "channels": ["#YOUR_CHANNEL_HERE"]
+
+  },
+  "discord": {
+    "enabled": true,
+    "token": "YOUR_TOKEN_HERE",
+    "guild": "SpongePowered",
+    "plugin-developer-role": 0
+  },
+  "command": {
+    "prefix": "!f",
+    "ignore": []
+  },
+
+  "discourse": {
+    "base-url": "https://forums.spongepowered.org",
+    "api": {
+      "username": "DISCOURSE_API_USERNAME_HERE",
+      "key": "DISCOURSE_API_KEY_HERE"
+    },
+    "verification-token-length": 20
+  },
+  "ore": {
+    "base-url": "https://ore.spongepowered.org"
+  }
+}

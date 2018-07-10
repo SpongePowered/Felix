@@ -36,9 +36,13 @@ import java.lang.reflect.InvocationTargetException;
 
 public final class IrcPlatform {
   private static final Logger LOGGER = LogManager.getLogger();
-  private final Client client;
+  private Client client = null;
 
   public IrcPlatform(final ConfigurationNode config, final CommandConfiguration dcm) {
+    if (!config.getNode("enabled").getBoolean(true)) {
+      LOGGER.error("IRC client is disabled via config.");
+      return;
+    }
     this.client = Client.builder()
       .name("felix")
       .nick(config.getNode("nick").getString())

@@ -25,11 +25,15 @@
 package org.spongepowered.felix.platform;
 
 import com.sk89q.intake.context.CommandContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.felix.command.CommandConfiguration;
 import org.spongepowered.felix.command.CommandUtil;
 import org.spongepowered.felix.command.PhysicalCommand;
 import org.spongepowered.felix.command.Target;
 import ninja.leaping.configurate.ConfigurationNode;
+import org.spongepowered.felix.command.custom.CustomCommand;
+import org.spongepowered.felix.command.custom.verifyrole.CommandRole;
 import sx.blah.discord.api.ClientBuilder;
 import sx.blah.discord.api.IDiscordClient;
 import sx.blah.discord.api.events.EventSubscriber;
@@ -41,11 +45,21 @@ import java.util.Iterator;
 import javax.annotation.Nullable;
 
 public final class DiscordPlatform {
-  private final IDiscordClient client;
-  private final CommandConfiguration cc;
+  public static final Logger LOGGER = LogManager.getLogger();
+  private IDiscordClient client;
+  private CommandConfiguration cc;
 
-  public DiscordPlatform(final ConfigurationNode config, final CommandConfiguration cc) {
+  public IDiscordClient getClient() {
+    return this.client;
+  }
+
+  public DiscordPlatform(final ConfigurationNode config, final ConfigurationNode rootConfig, final CommandConfiguration cc) {
+    if (!config.getNode("enabled").getBoolean(true)) {
+      LOGGER.error("Discord client is disabled via config");
+      return;
+    }
     this.cc = cc;
+    this.cc.addCustomCommand("role", new CommandRole(rootConfig));
     this.client = new ClientBuilder()
       .withToken(config.getNode("token").getString())
       .build();
@@ -76,9 +90,24 @@ public final class DiscordPlatform {
 
     // Let's get physical.
     @Nullable final PhysicalCommand command = this.cc.commands.get(name);
-    if(command == null) {
+    if(command != null) {
+      this.processPhysicalCommand(event, name, command);
       return;
     }
+
+    @Nullable final CustomCommand customCommand = this.cc.customCommands.get(name);
+    if (customCommand != null) {
+      try {
+        customCommand.process(split, event);
+      } catch (Exception e) {
+        DiscordPlatform.LOGGER.error(String.format("Exception occcured while processing command '%s'", message), e);
+        RequestBuffer.request(() -> event.getChannel().sendMessage("Exception occured while processing your request"));
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  private void processPhysicalCommand(MessageReceivedEvent event, String name, PhysicalCommand command) {
 
     final StringBuilder sb = new StringBuilder();
     for(final Iterator<String> iterator = command.responses.iterator(); iterator.hasNext(); ) {
