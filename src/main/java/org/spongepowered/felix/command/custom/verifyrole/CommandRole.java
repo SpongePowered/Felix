@@ -1,17 +1,21 @@
 package org.spongepowered.felix.command.custom.verifyrole;
 
-import com.google.api.client.http.ByteArrayContent;
-import com.google.api.client.http.GenericUrl;
-import com.google.api.client.http.HttpRequest;
-import com.google.api.client.http.HttpRequestFactory;
-import com.google.api.client.http.HttpResponse;
-import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import ninja.leaping.configurate.ConfigurationNode;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.StringBody;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.spongepowered.felix.command.custom.CustomCommand;
 import org.spongepowered.felix.platform.DiscordPlatform;
 import sx.blah.discord.api.IDiscordClient;
@@ -24,7 +28,6 @@ import sx.blah.discord.util.RequestBuffer;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class CommandRole implements CustomCommand {
@@ -51,8 +54,6 @@ public class CommandRole implements CustomCommand {
     private String tokenCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     private Map<String, TokenData> discordUsernameToToken = new HashMap<>();
-
-    private HttpRequestFactory requestFactory = new NetHttpTransport().createRequestFactory();
 
     public CommandRole(ConfigurationNode config) {
         this.config = config;
@@ -104,34 +105,38 @@ public class CommandRole implements CustomCommand {
 
         this.storeToken(event, new TokenData(token, forumUsername));
 
-        if (true) {
-            return;
-        }
+        String url = baseDiscourseURL + "/posts.json";
 
-        JsonObject messageRequest = new JsonObject();
+        HttpClient client = HttpClientBuilder.create().build();
+        HttpPost postRequest = new HttpPost(url);
 
-        messageRequest.addProperty("title", "Role verification token");
-        messageRequest.addProperty("topic_id", 0);
-        messageRequest.addProperty("raw", String.format("Send the following private message to the bot: !role forum-token %s", token));
-        messageRequest.addProperty("category", 0);
-        messageRequest.addProperty("target_usernames", forumUsername);
-        messageRequest.addProperty("archetype", "private_message");
+        ContentType contentType = ContentType.MULTIPART_FORM_DATA;
+
+        HttpEntity entity = MultipartEntityBuilder.create()
+                .addPart("api_key", new StringBody(this.discourseAPIKey, contentType))
+                .addPart("api_username", new StringBody(this.discourseAPIUsername, contentType))
+                .addPart("raw", new StringBody(String.format("Send the following private message to the bot: !role forum-token %s", token), contentType))
+                .addPart("title", new StringBody("Your Discord verification token", contentType))
+                .addPart("target_usernames", new StringBody(forumUsername, contentType))
+                .addPart("archetype", new StringBody("private_message", contentType))
+                .build();
+
+        postRequest.setEntity(entity);
 
         try {
-            String url = baseDiscourseURL + "/posts.json?" + String.format("api_key=%s&api_username=%s", this.discourseAPIKey, this.discourseAPIUsername);
-            HttpRequest request = this.requestFactory.buildPostRequest(new GenericUrl(url), new ByteArrayContent("multipart/form-data", messageRequest.toString().getBytes("UTF-8"))).setThrowExceptionOnExecuteError(false);
-            HttpResponse response = request.execute();
+            org.apache.http.HttpResponse response = client.execute(postRequest);
+            HttpEntity responseEntity = response.getEntity();
 
+            if (!(response.getStatusLine().getStatusCode() == 200)) {
 
-            if (!response.isSuccessStatusCode()) {
-                String responseText = response.parseAsString();
+                String responseText = EntityUtils.toString(responseEntity);
+
                 DiscordPlatform.LOGGER.error(String.format("Failed to send private message to %s: %s", forumUsername, responseText));
                 RequestBuffer.request(() -> event.getChannel().sendMessage("Failed to send forum private message"));
                 return;
             }
 
             RequestBuffer.request(() -> event.getChannel().sendMessage("Check your sponge forums account for a new private message!"));
-
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -181,14 +186,19 @@ public class CommandRole implements CustomCommand {
     private void validatePluginDeveloperRole(MessageReceivedEvent event, String forumUsername) {
         String url = this.baseOreURL + "/api/v1/users/" + forumUsername;
         try {
-            HttpResponse resp = this.requestFactory.buildGetRequest(new GenericUrl(url)).setThrowExceptionOnExecuteError(false).execute();
-            if (!resp.isSuccessStatusCode()) {
-                DiscordPlatform.LOGGER.error(String.format("Failed to get Ore projects for %s: %s", forumUsername, resp.parseAsString()));
+            HttpClient client = HttpClientBuilder.create().build();
+            HttpGet getRequest = new HttpGet(url);
+
+            HttpResponse resp = client.execute(getRequest);
+            String responseText = EntityUtils.toString(resp.getEntity());
+
+            if (!(resp.getStatusLine().getStatusCode() == 200)) {
+                DiscordPlatform.LOGGER.error(String.format("Failed to get Ore projects for %s: %s", forumUsername, responseText));
                 RequestBuffer.request(() -> event.getChannel().sendMessage("Failed to get Ore projects for " + forumUsername));
                 return;
             }
 
-            JsonObject user = new JsonParser().parse(resp.parseAsString()).getAsJsonObject();
+            JsonObject user = new JsonParser().parse(responseText).getAsJsonObject();
             JsonElement projects = user.get("projects");
             if (!projects.isJsonNull() && projects.getAsJsonArray().size() > 0) {
                 this.grantPluginDeveloperRole(event);
